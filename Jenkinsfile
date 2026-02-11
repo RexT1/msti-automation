@@ -44,9 +44,9 @@ pipeline {
         echo '🔨 Building backend image...'
         dir(path: 'backend') {
           sh """
-                                  docker build -t ${DOCKER_USERNAME}/backend:${IMAGE_TAG} .
-                                  docker build -t ${DOCKER_USERNAME}/backend:${BUILD_NUMBER} .
-                              """
+                                            docker build -t ${DOCKER_USERNAME}/backend:${IMAGE_TAG} .
+                                            docker build -t ${DOCKER_USERNAME}/backend:${BUILD_NUMBER} .
+                                        """
         }
 
       }
@@ -63,9 +63,9 @@ pipeline {
         echo '🔨 Building frontend image...'
         dir(path: 'frontend/msti-automation') {
           sh """
-                                  docker build -t ${DOCKER_USERNAME}/frontend:${IMAGE_TAG} .
-                                  docker build -t ${DOCKER_USERNAME}/frontend:${BUILD_NUMBER} .
-                              """
+                                            docker build -t ${DOCKER_USERNAME}/frontend:${IMAGE_TAG} .
+                                            docker build -t ${DOCKER_USERNAME}/frontend:${BUILD_NUMBER} .
+                                        """
         }
 
       }
@@ -81,27 +81,27 @@ pipeline {
       steps {
         echo '📤 Pushing images to Docker Hub...'
         withCredentials(bindings: [usernamePassword(
-                              credentialsId: 'docker-hub-credentials',
-                              usernameVariable: 'DOCKER_USER',
-                              passwordVariable: 'DOCKER_PASS'
-                          )]) {
+                                        credentialsId: 'docker-hub-credentials',
+                                        usernameVariable: 'DOCKER_USER',
+                                        passwordVariable: 'DOCKER_PASS'
+                                    )]) {
             sh """
-                                    echo "\$DOCKER_PASS" | docker login -u "\$DOCKER_USER" --password-stdin
-                                    
-                                    if [ "${env.BACKEND_CHANGED}" = "true" ]; then
-                                        docker push ${DOCKER_USERNAME}/backend:${IMAGE_TAG}
-                                        docker push ${DOCKER_USERNAME}/backend:${BUILD_NUMBER}
-                                        echo "✅ Backend pushed"
-                                    fi
-                                    
-                                    if [ "${env.FRONTEND_CHANGED}" = "true" ]; then
-                                        docker push ${DOCKER_USERNAME}/frontend:${IMAGE_TAG}
-                                        docker push ${DOCKER_USERNAME}/frontend:${BUILD_NUMBER}
-                                        echo "✅ Frontend pushed"
-                                    fi
-                                    
-                                    docker logout
-                                """
+                                                echo "\$DOCKER_PASS" | docker login -u "\$DOCKER_USER" --password-stdin
+                                                
+                                                if [ "${env.BACKEND_CHANGED}" = "true" ]; then
+                                                    docker push ${DOCKER_USERNAME}/backend:${IMAGE_TAG}
+                                                    docker push ${DOCKER_USERNAME}/backend:${BUILD_NUMBER}
+                                                    echo "✅ Backend pushed"
+                                                fi
+                                                
+                                                if [ "${env.FRONTEND_CHANGED}" = "true" ]; then
+                                                    docker push ${DOCKER_USERNAME}/frontend:${IMAGE_TAG}
+                                                    docker push ${DOCKER_USERNAME}/frontend:${BUILD_NUMBER}
+                                                    echo "✅ Frontend pushed"
+                                                fi
+                                                
+                                                docker logout
+                                            """
           }
 
         }
@@ -153,26 +153,26 @@ pipeline {
           echo "🚀 Deploying to ${env.NEXT_ENV} environment..."
           dir(path: "${DEPLOY_DIR}/deployment") {
             sh """
-                                    # Load environment variables from .env file
-                                    if [ -f .env ]; then
-                                        set -a
-                                        . ./.env
-                                        set +a
-                                    fi
-                                    
-                                    # Override with build-specific values
-                                    export DOCKER_USERNAME=${DOCKER_USERNAME}
-                                    export IMAGE_TAG=${IMAGE_TAG}
-                                    export DEPLOYMENT_TIMESTAMP=\$(date +%Y%m%d-%H%M%S)
-                                    
-                                    # Pull latest images (use project name to keep blue/green separate)
-                                    docker compose -p msti-${env.NEXT_ENV} -f docker-compose.${env.NEXT_ENV}.yml pull
-                                    
-                                    # Start new environment (no --remove-orphans to avoid stopping other env)
-                                    docker compose -p msti-${env.NEXT_ENV} -f docker-compose.${env.NEXT_ENV}.yml up -d --force-recreate
-                                    
-                                    echo "✅ ${env.NEXT_ENV} environment started"
-                                """
+                                                # Load environment variables from .env file
+                                                if [ -f .env ]; then
+                                                    set -a
+                                                    . ./.env
+                                                    set +a
+                                                fi
+                                                
+                                                # Override with build-specific values
+                                                export DOCKER_USERNAME=${DOCKER_USERNAME}
+                                                export IMAGE_TAG=${IMAGE_TAG}
+                                                export DEPLOYMENT_TIMESTAMP=\$(date +%Y%m%d-%H%M%S)
+                                                
+                                                # Pull latest images (use project name to keep blue/green separate)
+                                                docker compose -p msti-${env.NEXT_ENV} -f docker-compose.${env.NEXT_ENV}.yml pull
+                                                
+                                                # Start new environment (no --remove-orphans to avoid stopping other env)
+                                                docker compose -p msti-${env.NEXT_ENV} -f docker-compose.${env.NEXT_ENV}.yml up -d --force-recreate
+                                                
+                                                echo "✅ ${env.NEXT_ENV} environment started"
+                                            """
           }
 
         }
@@ -237,11 +237,11 @@ pipeline {
           echo "🛑 Stopping old ${env.CURRENT_ENV} environment..."
           dir(path: "${DEPLOY_DIR}/deployment") {
             sh """
-                                    # Gracefully stop old environment (use project name)
-                                    docker compose -p msti-${env.CURRENT_ENV} -f docker-compose.${env.CURRENT_ENV}.yml down || true
-                                    
-                                    echo "✅ Old ${env.CURRENT_ENV} environment stopped"
-                                """
+                                                # Gracefully stop old environment (use project name)
+                                                docker compose -p msti-${env.CURRENT_ENV} -f docker-compose.${env.CURRENT_ENV}.yml down || true
+                                                
+                                                echo "✅ Old ${env.CURRENT_ENV} environment stopped"
+                                            """
           }
 
         }
@@ -251,18 +251,18 @@ pipeline {
         steps {
           echo '🧹 Cleaning up old images...'
           sh """
-                              # Remove dangling images
-                              docker image prune -f || true
-                              
-                              # Keep only last 5 build images
-                              docker images ${DOCKER_USERNAME}/backend --format '{{.Tag}}' | \
-                                  grep -E '^[0-9]+\$' | sort -rn | tail -n +6 | \
-                                  xargs -I {} docker rmi ${DOCKER_USERNAME}/backend:{} 2>/dev/null || true
-                              
-                              docker images ${DOCKER_USERNAME}/frontend --format '{{.Tag}}' | \
-                                  grep -E '^[0-9]+\$' | sort -rn | tail -n +6 | \
-                                  xargs -I {} docker rmi ${DOCKER_USERNAME}/frontend:{} 2>/dev/null || true
-                          """
+                                        # Remove dangling images
+                                        docker image prune -f || true
+                                        
+                                        # Keep only last 5 build images
+                                        docker images ${DOCKER_USERNAME}/backend --format '{{.Tag}}' | \
+                                            grep -E '^[0-9]+\$' | sort -rn | tail -n +6 | \
+                                            xargs -I {} docker rmi ${DOCKER_USERNAME}/backend:{} 2>/dev/null || true
+                                        
+                                        docker images ${DOCKER_USERNAME}/frontend --format '{{.Tag}}' | \
+                                            grep -E '^[0-9]+\$' | sort -rn | tail -n +6 | \
+                                            xargs -I {} docker rmi ${DOCKER_USERNAME}/frontend:{} 2>/dev/null || true
+                                    """
         }
       }
 
@@ -275,23 +275,23 @@ pipeline {
     post {
       success {
         echo """
-                    ✅ DEPLOYMENT SUCCESSFUL!
-                    ========================
-                    Environment: ${env.NEXT_ENV ?: 'N/A'}
-                    Build: #${BUILD_NUMBER}
-                    Backend changed: ${env.BACKEND_CHANGED}
-                    Frontend changed: ${env.FRONTEND_CHANGED}
-                    """
+                            ✅ DEPLOYMENT SUCCESSFUL!
+                            ========================
+                            Environment: ${env.NEXT_ENV ?: 'N/A'}
+                            Build: #${BUILD_NUMBER}
+                            Backend changed: ${env.BACKEND_CHANGED}
+                            Frontend changed: ${env.FRONTEND_CHANGED}
+                            """
       }
 
       failure {
         echo """
-                    ❌ DEPLOYMENT FAILED!
-                    ====================
-                    Check the logs above for details.
-                    You may need to manually rollback using:
-                    cd ${DEPLOY_DIR} && deployment/deploy.sh rollback
-                    """
+                            ❌ DEPLOYMENT FAILED!
+                            ====================
+                            Check the logs above for details.
+                            You may need to manually rollback using:
+                            cd ${DEPLOY_DIR} && deployment/deploy.sh rollback
+                            """
         script {
           if (env.CURRENT_ENV && env.CURRENT_ENV != 'none') {
             echo "🔄 Attempting automatic rollback to ${env.CURRENT_ENV}..."
