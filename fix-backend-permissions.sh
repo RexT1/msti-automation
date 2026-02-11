@@ -5,7 +5,7 @@ echo "======================================"
 
 # Stop problematic containers
 echo "🛑 Stopping problematic containers..."
-ssh cisco@192.168.238.10 << 'EOF'
+ssh cisco@10.20.50.125 << 'EOF'
     cd /opt/msti-automation
     
     # Force stop and remove containers
@@ -43,7 +43,7 @@ echo ""
 
 # Option 2: Direct fix on VPS
 echo "🚀 Attempting direct fix on VPS..."
-ssh cisco@192.168.238.10 << 'EOF'
+ssh cisco@10.20.50.125 << 'EOF'
     # Pull fresh image without cache
     docker pull dafit17docker/backend:latest --no-cache
     

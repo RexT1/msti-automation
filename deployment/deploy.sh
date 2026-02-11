@@ -31,7 +31,7 @@ info() {
 }
 
 # Configuration
-DOCKER_USERNAME=${DOCKER_USERNAME:-"martinchand"}
+DOCKER_USERNAME=${DOCKER_USERNAME:-"dafit17docker"}
 IMAGE_TAG=${IMAGE_TAG:-"latest"}
 DEPLOYMENT_TIMESTAMP=${DEPLOYMENT_TIMESTAMP:-$(date +%Y%m%d-%H%M%S)}
 
@@ -109,6 +109,21 @@ deploy_environment() {
     export DOCKER_USERNAME
     export IMAGE_TAG
     export DEPLOYMENT_TIMESTAMP
+    
+    # Ensure shared services (Redis) are running
+    log "Ensuring shared services are running..."
+    docker compose -f deployment/docker-compose.shared.yml up -d
+    
+    # Wait for Redis to be healthy
+    info "Waiting for Redis to be ready..."
+    for i in 1 2 3 4 5 6 7 8 9 10; do
+        if docker exec msti-redis redis-cli ping 2>/dev/null | grep -q PONG; then
+            log "✅ Redis is ready!"
+            break
+        fi
+        echo "Waiting for Redis... attempt $i/10"
+        sleep 2
+    done
     
     # Preflight: free host ports that will be used by this environment (avoid stale bind)
     local backend_host_port webhook_host_port
