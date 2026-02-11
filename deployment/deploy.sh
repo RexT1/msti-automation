@@ -31,7 +31,7 @@ info() {
 }
 
 # Configuration
-DOCKER_USERNAME=${DOCKER_USERNAME:-"dafit17docker"}
+DOCKER_USERNAME=${DOCKER_USERNAME:-"martinchand"}
 IMAGE_TAG=${IMAGE_TAG:-"latest"}
 DEPLOYMENT_TIMESTAMP=${DEPLOYMENT_TIMESTAMP:-$(date +%Y%m%d-%H%M%S)}
 

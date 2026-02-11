@@ -5,7 +5,7 @@ pipeline {
     agent any
     
     environment {
-        DOCKER_USERNAME = 'dafit17docker'
+        DOCKER_USERNAME = 'martinchand'
         DEPLOY_DIR = '/opt/msti-automation'
         IMAGE_TAG = 'latest'
     }
