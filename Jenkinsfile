@@ -1,4 +1,4 @@
-﻿// Jenkinsfile - MSTI Automation CI/CD Pipeline
+// Jenkinsfile - MSTI Automation CI/CD Pipeline
 // This pipeline polls GitHub and handles blue-green deployment automatically
 
 pipeline {

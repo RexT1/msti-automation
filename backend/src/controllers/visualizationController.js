@@ -16,7 +16,7 @@ export const getDataSources = async(req, res) => {
         res.json(sources);
     } catch (error) {
         console.error('Error getting data sources:', error);
-        res.status(500).json({ error: 'Failed to get data sources' });
+        res.status(500).json({ error: 'Failed to get data sources!' });
     }
 };
 
