@@ -4,12 +4,10 @@
 pipeline {
     agent any
     
-environment {
+    environment {
         DOCKER_USERNAME = 'martinchand'
         DEPLOY_DIR = '/opt/msti-automation'
         IMAGE_TAG = 'latest'
-        GITHUB_TOKEN = credentials('github-token')
-        GITHUB_REPO = 'rext1/msti-automation'
     }
     
     triggers {
@@ -147,6 +145,36 @@ environment {
                     
                     echo "Current environment: ${env.CURRENT_ENV}"
                     echo "Next environment: ${env.NEXT_ENV}"
+                }
+            }
+        }
+        
+        stage('Ensure Shared Services') {
+            when {
+                expression { 
+                    env.BACKEND_CHANGED == 'true' || 
+                    env.FRONTEND_CHANGED == 'true' || 
+                    env.DEPLOYMENT_CHANGED == 'true' 
+                }
+            }
+            steps {
+                echo "🔧 Ensuring shared services (Redis) are running..."
+                dir("${DEPLOY_DIR}/deployment") {
+                    sh """
+                        # Start shared services (Redis) - this is idempotent
+                        docker compose -p msti-shared -f docker-compose.shared.yml up -d
+                        
+                        # Wait for Redis to be healthy
+                        echo "⏳ Waiting for Redis to be ready..."
+                        for i in 1 2 3 4 5 6 7 8 9 10; do
+                            if docker exec msti-redis redis-cli ping 2>/dev/null | grep -q PONG; then
+                                echo "✅ Redis is ready!"
+                                break
+                            fi
+                            echo "Waiting for Redis... attempt \$i/10"
+                            sleep 2
+                        done
+                    """
                 }
             }
         }
