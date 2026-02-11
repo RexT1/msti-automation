@@ -33,7 +33,7 @@ const DashboardExplorer: React.FC = () => {
         setDashboards(response || []);
       } catch (err) {
         console.error('Error fetching dashboards:', err);
-        setError('Failed to load dashboards!');
+        setError('Failed to load dashboards');
         setDashboards([]);
       } finally {
         setIsLoading(false);
