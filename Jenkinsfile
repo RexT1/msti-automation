@@ -4,10 +4,12 @@
 pipeline {
     agent any
     
-    environment {
+environment {
         DOCKER_USERNAME = 'martinchand'
         DEPLOY_DIR = '/opt/msti-automation'
         IMAGE_TAG = 'latest'
+        GITHUB_TOKEN = credentials('github-token')
+        GITHUB_REPO = 'rext1/msti-automation'
     }
     
     triggers {
