@@ -23,11 +23,12 @@ services:
       - "service.name=redis"
       - "service.type=session-store"
 
+volumes:
+  redis-data:
+    external: true
+    name: msti-redis-data
+
 networks:
   msti-shared:
     driver: bridge
     name: msti-shared
-
-volumes:
-  redis-data:
-    name: msti-redis-data

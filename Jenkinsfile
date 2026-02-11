@@ -1,4 +1,4 @@
-// Jenkinsfile - MSTI Automation CI/CD Pipeline
+﻿// Jenkinsfile - MSTI Automation CI/CD Pipeline
 // This pipeline polls GitHub and handles blue-green deployment automatically
 
 pipeline {
@@ -26,7 +26,7 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                echo '📥 Checking out source code...'
+                echo 'Checking out source code...'
                 checkout scm
             }
         }
@@ -34,7 +34,7 @@ pipeline {
         stage('Detect Changes') {
             steps {
                 script {
-                    echo '🔍 Detecting changes...'
+                    echo 'Detecting changes...'
                     
                     // Get changed files from last commit
                     def changes = sh(
@@ -60,7 +60,7 @@ pipeline {
                 expression { env.BACKEND_CHANGED == 'true' }
             }
             steps {
-                echo '🔨 Building backend image...'
+                echo 'Building backend image...'
                 dir('backend') {
                     sh """
                         docker build -t ${DOCKER_USERNAME}/backend:${IMAGE_TAG} .
@@ -75,7 +75,7 @@ pipeline {
                 expression { env.FRONTEND_CHANGED == 'true' }
             }
             steps {
-                echo '🔨 Building frontend image...'
+                echo 'Building frontend image...'
                 dir('frontend/msti-automation') {
                     sh """
                         docker build -t ${DOCKER_USERNAME}/frontend:${IMAGE_TAG} .
@@ -90,7 +90,7 @@ pipeline {
                 expression { env.BACKEND_CHANGED == 'true' || env.FRONTEND_CHANGED == 'true' }
             }
             steps {
-                echo '📤 Pushing images to Docker Hub...'
+                echo 'Pushing images to Docker Hub...'
                 withCredentials([usernamePassword(
                     credentialsId: 'docker-hub-credentials',
                     usernameVariable: 'DOCKER_USER',
@@ -102,13 +102,13 @@ pipeline {
                         if [ "${env.BACKEND_CHANGED}" = "true" ]; then
                             docker push ${DOCKER_USERNAME}/backend:${IMAGE_TAG}
                             docker push ${DOCKER_USERNAME}/backend:${BUILD_NUMBER}
-                            echo "✅ Backend pushed"
+                            echo "Backend pushed"
                         fi
                         
                         if [ "${env.FRONTEND_CHANGED}" = "true" ]; then
                             docker push ${DOCKER_USERNAME}/frontend:${IMAGE_TAG}
                             docker push ${DOCKER_USERNAME}/frontend:${BUILD_NUMBER}
-                            echo "✅ Frontend pushed"
+                            echo "Frontend pushed"
                         fi
                         
                         docker logout
@@ -120,7 +120,7 @@ pipeline {
         stage('Detect Active Environment') {
             steps {
                 script {
-                    echo '🔍 Detecting current active environment...'
+                    echo 'Detecting current active environment...'
                     
                     def blueRunning = sh(
                         script: "docker ps --filter 'name=msti-backend-blue' --filter 'status=running' -q",
@@ -149,7 +149,7 @@ pipeline {
             }
         }
         
-        stage('Ensure Shared Services') {
+        stage('Sync and Prepare') {
             when {
                 expression { 
                     env.BACKEND_CHANGED == 'true' || 
@@ -158,9 +158,8 @@ pipeline {
                 }
             }
             steps {
-                echo "� Syncing deployment files to ${DEPLOY_DIR}..."
+                echo "Syncing deployment files to ${DEPLOY_DIR}..."
                 sh """
-                    # Copy deployment files from workspace to deploy directory
                     cp -f deployment/docker-compose.shared.yml ${DEPLOY_DIR}/deployment/
                     cp -f deployment/docker-compose.blue.yml ${DEPLOY_DIR}/deployment/
                     cp -f deployment/docker-compose.green.yml ${DEPLOY_DIR}/deployment/
@@ -168,17 +167,28 @@ pipeline {
                     cp -f deployment/container-control.sh ${DEPLOY_DIR}/deployment/ 2>/dev/null || true
                 """
                 
-                echo "�🔧 Ensuring shared services (Redis) are running..."
+                echo "Ensuring Redis shared service is running..."
                 dir("${DEPLOY_DIR}/deployment") {
                     sh """
-                        # Start shared services (Redis) - this is idempotent
+                        # Check if Redis container belongs to a different compose project
+                        OLD_PROJECT=\$(docker inspect msti-redis --format '{{index .Config.Labels "com.docker.compose.project"}}' 2>/dev/null || true)
+                        if [ -n "\$OLD_PROJECT" ] && [ "\$OLD_PROJECT" != "msti-shared" ]; then
+                            echo "Removing Redis from old project: \$OLD_PROJECT"
+                            docker stop msti-redis 2>/dev/null || true
+                            docker rm msti-redis 2>/dev/null || true
+                        fi
+
+                        # Ensure the Redis data volume exists (external volume)
+                        docker volume create msti-redis-data 2>/dev/null || true
+
+                        # Start shared services (Redis)
                         docker compose -p msti-shared -f docker-compose.shared.yml up -d
-                        
-                        # Wait for Redis to be healthy
-                        echo "⏳ Waiting for Redis to be ready..."
+
+                        # Wait for Redis to be ready
+                        echo "Waiting for Redis..."
                         for i in 1 2 3 4 5 6 7 8 9 10; do
                             if docker exec msti-redis redis-cli ping 2>/dev/null | grep -q PONG; then
-                                echo "✅ Redis is ready!"
+                                echo "Redis is ready!"
                                 break
                             fi
                             echo "Waiting for Redis... attempt \$i/10"
@@ -198,7 +208,7 @@ pipeline {
                 }
             }
             steps {
-                echo "🚀 Deploying to ${env.NEXT_ENV} environment..."
+                echo "Deploying to ${env.NEXT_ENV} environment..."
                 dir("${DEPLOY_DIR}/deployment") {
                     sh """
                         # Load environment variables from .env file
@@ -213,13 +223,13 @@ pipeline {
                         export IMAGE_TAG=${IMAGE_TAG}
                         export DEPLOYMENT_TIMESTAMP=\$(date +%Y%m%d-%H%M%S)
                         
-                        # Pull latest images (use project name to keep blue/green separate)
+                        # Pull latest images
                         docker compose -p msti-${env.NEXT_ENV} -f docker-compose.${env.NEXT_ENV}.yml pull
                         
-                        # Start new environment (no --remove-orphans to avoid stopping other env)
+                        # Start new environment
                         docker compose -p msti-${env.NEXT_ENV} -f docker-compose.${env.NEXT_ENV}.yml up -d --force-recreate
                         
-                        echo "✅ ${env.NEXT_ENV} environment started"
+                        echo "${env.NEXT_ENV} environment started"
                     """
                 }
             }
@@ -234,7 +244,7 @@ pipeline {
                 }
             }
             steps {
-                echo "🏥 Waiting for ${env.NEXT_ENV} environment to be healthy..."
+                echo "Waiting for ${env.NEXT_ENV} environment to be healthy..."
                 script {
                     def backendPort = env.NEXT_ENV == 'blue' ? '3001' : '3003'
                     def frontendPort = env.NEXT_ENV == 'blue' ? '5172' : '5173'
@@ -256,15 +266,15 @@ pipeline {
                         
                         if (backendHealth != 'unhealthy' && frontendHealth != 'unhealthy') {
                             healthy = true
-                            echo "✅ Both services are healthy!"
+                            echo "Both services are healthy!"
                             break
                         }
                         
-                        echo "⏳ Waiting... (${i + 1}/${maxRetries})"
+                        echo "Waiting... (${i + 1}/${maxRetries})"
                     }
                     
                     if (!healthy) {
-                        error("❌ Health check failed after ${maxRetries} attempts")
+                        error("Health check failed after ${maxRetries} attempts")
                     }
                 }
             }
@@ -278,13 +288,11 @@ pipeline {
                 }
             }
             steps {
-                echo "🛑 Stopping old ${env.CURRENT_ENV} environment..."
+                echo "Stopping old ${env.CURRENT_ENV} environment..."
                 dir("${DEPLOY_DIR}/deployment") {
                     sh """
-                        # Gracefully stop old environment (use project name)
                         docker compose -p msti-${env.CURRENT_ENV} -f docker-compose.${env.CURRENT_ENV}.yml down || true
-                        
-                        echo "✅ Old ${env.CURRENT_ENV} environment stopped"
+                        echo "Old ${env.CURRENT_ENV} environment stopped"
                     """
                 }
             }
@@ -292,12 +300,10 @@ pipeline {
         
         stage('Cleanup') {
             steps {
-                echo '🧹 Cleaning up old images...'
+                echo 'Cleaning up old images...'
                 sh """
-                    # Remove dangling images
                     docker image prune -f || true
                     
-                    # Keep only last 5 build images
                     docker images ${DOCKER_USERNAME}/backend --format '{{.Tag}}' | \
                         grep -E '^[0-9]+\$' | sort -rn | tail -n +6 | \
                         xargs -I {} docker rmi ${DOCKER_USERNAME}/backend:{} 2>/dev/null || true
@@ -313,7 +319,7 @@ pipeline {
     post {
         success {
             echo """
-            ✅ DEPLOYMENT SUCCESSFUL!
+            DEPLOYMENT SUCCESSFUL!
             ========================
             Environment: ${env.NEXT_ENV ?: 'N/A'}
             Build: #${BUILD_NUMBER}
@@ -323,7 +329,7 @@ pipeline {
         }
         failure {
             echo """
-            ❌ DEPLOYMENT FAILED!
+            DEPLOYMENT FAILED!
             ====================
             Check the logs above for details.
             You may need to manually rollback using:
@@ -333,7 +339,7 @@ pipeline {
             // Attempt automatic rollback
             script {
                 if (env.CURRENT_ENV && env.CURRENT_ENV != 'none') {
-                    echo "🔄 Attempting automatic rollback to ${env.CURRENT_ENV}..."
+                    echo "Attempting automatic rollback to ${env.CURRENT_ENV}..."
                     sh """
                         cd ${DEPLOY_DIR}/deployment
                         docker compose -p msti-${env.NEXT_ENV} -f docker-compose.${env.NEXT_ENV}.yml down || true
