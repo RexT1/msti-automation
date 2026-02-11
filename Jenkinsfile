@@ -158,7 +158,17 @@ pipeline {
                 }
             }
             steps {
-                echo "🔧 Ensuring shared services (Redis) are running..."
+                echo "� Syncing deployment files to ${DEPLOY_DIR}..."
+                sh """
+                    # Copy deployment files from workspace to deploy directory
+                    cp -f deployment/docker-compose.shared.yml ${DEPLOY_DIR}/deployment/
+                    cp -f deployment/docker-compose.blue.yml ${DEPLOY_DIR}/deployment/
+                    cp -f deployment/docker-compose.green.yml ${DEPLOY_DIR}/deployment/
+                    cp -f deployment/deploy.sh ${DEPLOY_DIR}/deployment/ 2>/dev/null || true
+                    cp -f deployment/container-control.sh ${DEPLOY_DIR}/deployment/ 2>/dev/null || true
+                """
+                
+                echo "�🔧 Ensuring shared services (Redis) are running..."
                 dir("${DEPLOY_DIR}/deployment") {
                     sh """
                         # Start shared services (Redis) - this is idempotent
